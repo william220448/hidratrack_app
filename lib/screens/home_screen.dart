@@ -1,8 +1,125 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'registros.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  //Guardo hora y fecha
+  DateTime? selectedDate;
+  TimeOfDay? selectedTime;
+  //Guardo los ml
+  final TextEditingController _cantidadController = TextEditingController();
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Colors.blue.shade600,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue.shade600,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null) {
+      setState(() {
+        selectedDate = pickedDate;
+      });
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Colors.blue.shade600,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedTime != null) {
+      setState(() {
+        selectedTime = pickedTime;
+      });
+    }
+  }
+
+  // Función para el botón de registrar
+  Future<void> _registrar() async {
+    final int? cantidad = int.tryParse(_cantidadController.text);
+    final DateTime? fecha = selectedDate;
+    final TimeOfDay? hora = selectedTime;
+
+    if (cantidad == null || fecha == null || hora == null) {
+      print('Por favor completa todos los campos');
+      return;
+    }
+    print('Cantidad: $cantidad');
+    print('Fecha: $fecha');
+    print('Hora: $hora');
+
+    final String formattedFecha = '${fecha.year}-${fecha.month}-${fecha.day}';
+    final String formattedHora =
+        '${hora.hour}:${hora.minute.toString().padLeft(2, '0')}';
+
+    final data = {
+      'id': 0,
+      'cantidad_ml': cantidad,
+      'fecha': formattedFecha,
+      'hora': formattedHora,
+    };
+
+    try {
+      /*
+      final response = await Dio().post(
+        'http://192.168.100.6:3000/api/hidratacion',
+        data: data,
+      );
+      */
+      final response = await Dio().post(
+        'http://10.0.2.2:3000/api/hidratacion',
+        data: data,
+      );
+
+      if (response.data['error'] == false) {
+        // Manejo de la respuesta exitosa
+        print('Registro guardado exitosamente');
+      } else {
+        print('Error en la respuesta de la API');
+      }
+    } catch (e) {
+      print('Error al conectar con la API: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +154,6 @@ class HomeScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      //Color de fondo
       backgroundColor: const Color(0xFFDBE6E7),
       body: Container(
         padding: const EdgeInsets.all(16.0),
@@ -58,7 +174,7 @@ class HomeScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-              //Separo esta sección
+              // Separo esta sección
               const SizedBox(height: 24),
               Center(
                 child: Text(
@@ -71,20 +187,38 @@ class HomeScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 20),
+              TextField(
+                controller: _cantidadController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Cantidad en ml',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  prefixIcon: const Icon(Icons.local_drink),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16.0,
+                  ),
+                ),
+                style: const TextStyle(fontSize: 24),
+              ),
+
+              // Selector de fecha
               Center(
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width * 0.9,
                   child: TextField(
-                    keyboardType: TextInputType.number,
+                    readOnly: true,
+                    onTap: () => _selectDate(context),
                     decoration: InputDecoration(
-                      labelText: 'Cantidad en ml',
+                      hintText: selectedDate == null
+                          ? "Seleccionar fecha"
+                          : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.0),
                       ),
-                      prefixIcon: const Icon(Icons.local_drink),
+                      prefixIcon: const Icon(Icons.calendar_today),
                       contentPadding: const EdgeInsets.symmetric(
-                        //Tamaño del input
                         vertical: 16.0,
                       ),
                     ),
@@ -92,54 +226,37 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              // Botón de fecha
-              const SizedBox(height: 20),
+              // Selector de hora
               Center(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.calendar_today),
-                  label: const Text(
-                    "Seleccionar fecha",
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 14.0,
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.9,
+                  child: TextField(
+                    readOnly: true,
+                    onTap: () => _selectTime(context),
+                    decoration: InputDecoration(
+                      hintText: selectedTime == null
+                          ? "Seleccionar hora"
+                          : "${selectedTime!.hour}:${selectedTime!.minute.toString().padLeft(2, '0')}",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      prefixIcon: const Icon(Icons.watch_later),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 16.0,
+                      ),
                     ),
+                    style: const TextStyle(fontSize: 24),
                   ),
                 ),
               ),
-              //botón de hora
-              const SizedBox(height: 20),
-              Center(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.watch),
-                  label: const Text(
-                    "Seleccionar hora",
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 14.0,
-                    ),
-                  ),
-                ),
-              ),
+
               const SizedBox(height: 30),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Botón registrar
                   ElevatedButton(
-                    onPressed: () {
-                      // Botón registrar
-                    },
+                    onPressed: _registrar,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3B2863),
                       foregroundColor: Colors.white,
@@ -180,7 +297,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                     child: const Text(
                       "Ver historial",
-                      style: TextStyle(fontSize: 18),
+                      style: TextStyle(fontSize: 15),
                     ),
                   ),
                 ],
